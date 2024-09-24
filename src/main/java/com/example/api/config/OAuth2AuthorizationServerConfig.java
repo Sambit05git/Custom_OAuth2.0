@@ -11,6 +11,10 @@ import org.springframework.security.oauth2.config.annotation.web.configurers.Aut
 import org.springframework.security.oauth2.config.annotation.web.configurers.AuthorizationServerSecurityConfigurer;
 import org.springframework.security.oauth2.provider.token.TokenStore;
 import org.springframework.security.oauth2.provider.token.store.InMemoryTokenStore;
+import com.example.api.service.AwsSecretsManagerService;
+
+import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("deprecation")
 @Configuration
@@ -20,6 +24,9 @@ public class OAuth2AuthorizationServerConfig extends AuthorizationServerConfigur
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private AwsSecretsManagerService awsSecretsManagerService;
+
     @Override
     public void configure(AuthorizationServerSecurityConfigurer security) throws Exception {
         security.tokenKeyAccess("permitAll()")
@@ -28,12 +35,19 @@ public class OAuth2AuthorizationServerConfig extends AuthorizationServerConfigur
 
     @Override
     public void configure(ClientDetailsServiceConfigurer clients) throws Exception {
-        clients.inMemory()
-                .withClient("Rajesh")
-                .secret(passwordEncoder.encode("Rajesh@123"))
-                .authorizedGrantTypes("client_credentials")
-                .scopes("read", "write")
-                .accessTokenValiditySeconds(3600);
+        List<Map<String, String>> clientCredentials = awsSecretsManagerService.getClientCredentials();
+
+        for (Map<String, String> client : clientCredentials) {
+            String clientId = client.get("clientId");
+            String clientSecret = client.get("clientSecret");
+
+            clients.inMemory()
+                    .withClient(clientId)
+                    .secret(passwordEncoder.encode(clientSecret))
+                    .authorizedGrantTypes("client_credentials")
+                    .scopes("read", "write")
+                    .accessTokenValiditySeconds(3600);
+        }
     }
 
     @Override
